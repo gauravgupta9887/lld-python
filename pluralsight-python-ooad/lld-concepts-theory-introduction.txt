@@ -1,0 +1,52 @@
+1. What are design Patterns?
+ans) model solution to a design problem. Right pattern for building the system. Eg) mobile charging pin, electric wiring, automobiles
+2. Why do we need them?
+ans) consistent, reliable and understable work.
+3. Classification of design Patterns
+creational patterns:- create patterns (object creation) 
+structural patterns:- define relationship between the onjects (object composition)
+behavioral patterns:- object interaction and responsibility
+4. principles of ood 
+5. SOLID ;- 
+Single resposibility Principle :- One class should have only 1 responsibility. eg) class for washing, class for eating
+Open closed Principles:- open for extension and closed for modification
+Liskov Substitution Principle:- subclass should be able to stand dor their parent 
+Interface Segregation:- Have many different interfaces, rather then having only 1 
+Dependency inversion:- program toward abstraction, not toward concrete implementation
+6. How to define interface in python??
+I of SOLID is interface 
+abstract base class
+
+import abc 
+# abstraction
+class MyABC(abc.ABC):
+    """Abstract Base class definition"""
+
+    @abc.abstractmethod
+    def do_something(self, value):
+        """ Required Method"""
+
+    @abc.abstractproperty
+    def some_property(self):
+        """ Required Property"""
+
+# implementation
+##### you have to implement abstract properties
+class MyClass(MyABC):
+    """IMplementation of Abstract Base class"""
+
+    #__init__ is dunder because of double underscore
+    def __init__(self, value=None):
+        self.__myprop = value
+
+    def do_something(self, value):
+        """ Implementation of abstract Method"""
+        self._myprop *= value
+
+    @property
+    def some_property(self):
+        """Implementation of abstract Property"""
+        return self._myprop
+
+
+
