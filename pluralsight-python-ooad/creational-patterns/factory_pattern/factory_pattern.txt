@@ -1,0 +1,12 @@
+# It defines the interface for creating an object.
+# It lets subclass decide which object.
+# It defers instantiation to subclass.
+# #### called virtual constructor
+
+# Create an object for a model of car which support several car models,
+# also defer the actual model until runtime 
+
+
+# problems with the bad design
+# add different car model ==> main method need to be changed ==> breaking of open closed principle.
+# direct implementation of car classed ==> break dependency inversion principle.
