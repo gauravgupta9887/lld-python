@@ -1,0 +1,18 @@
+Abstract Factory Method is a Creational Design pattern that allows you to produce the families of related objects without specifying their concrete classes. Using the abstract factory method, we have the easiest ways to produce a similar type of many objects. 
+It provides a way to encapsulate a group of individual factories. Basically, here we try to abstract the creation of the objects depending on the logic, business, platform choice, etc.
+
+In the bad code we simply instantiated 3 different classes for 3 different courses, which were individually called from our main method and then used. Problem now if you add 4th course, you will need to add a class for that and its instantiation in main method.
+In good code we had one init in abstract factory which will instantiate the new class based on value passed.From main method it initially called abstract facory method with class name and then use it's methods easily.
+
+Q) How it differs from factory design pattern???
+Factory pattern works at object level whereas abstract factory works at class level which means even the details of instantiating new object is handled gracefully there in class.
+
+Advantage:-
+This pattern is particularly useful when the client doesn’t know exactly what type to create. 
+
+It is easy to introduce new variants of the products without breaking the existing client code.
+Products which we are getting from the factory are surely compatible with each other.
+
+Disadvantages of using Abstract Factory method:
+Our simple code may become complicated due to the existence of a lot of classes.
+We end up with a huge number of small files i.e, cluttering of files.
