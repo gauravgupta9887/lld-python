@@ -1,70 +1,118 @@
-from parking_display_board import ParkingDisplayBoard
-from enum_and_constant import ParkingSpotType
-class ParkingFloor:
-    def __init__(self, name):
-        self.__name = name
-        self.__handicapped_spots = {}
-        self.__compact_spots = {}
-        self.__large_spots = {}
-        self.__motorbike_spots = {}
-        self.__electric_spots = {}
-        self.__info_portals = {}
-        self.__display_board = ParkingDisplayBoard()
+import threading
+from enum_and_constant import VehicleType
 
-    def add_parking_spot(self, spot):
-        switcher = {
-        ParkingSpotType.HANDICAPPED: self.__handicapped_spots.put(spot.get_number(), spot),
-        ParkingSpotType.COMPACT: self.__compact_spots.put(spot.get_number(), spot),
-        ParkingSpotType.LARGE: self.__large_spots.put(spot.get_number(), spot),
-        ParkingSpotType.MOTORBIKE: self.__motorbike_spots.put(spot.get_number(), spot),
-        ParkingSpotType.ELECTRIC: self.__electric_spots.put(spot.get_number(), spot),
-        }
-        switcher.get(spot.get_type(), 'Wrong parking spot type')
+class ParkingLot:
+    # singleton ParkingLot to ensure only one object of ParkingLot in the system,
+    # all entrance panels will use this object to create new parking ticket: get_new_parking_ticket(),
+    # similarly exit panels will also use this object to close parking tickets
+    instance = None
 
-    def assign_vehicleToSpot(self, vehicle, spot):
-        spot.assign_vehicle(vehicle)
-        switcher = {
-        ParkingSpotType.HANDICAPPED: self.update_display_board_for_handicapped(spot),
-        ParkingSpotType.COMPACT: self.update_display_board_for_compact(spot),
-        ParkingSpotType.LARGE: self.update_display_board_for_large(spot),
-        ParkingSpotType.MOTORBIKE: self.update_display_board_for_motorbike(spot),
-        ParkingSpotType.ELECTRIC: self.update_display_board_for_electric(spot),
-        }
-        switcher(spot.get_type(), 'Wrong parking spot type!')
+    class __OnlyOne:
+        def __init__(self, name, address):
+            # 1. initialize variables: read name, address and parking_rate from database
+            # 2. initialize parking floors: read the parking floor map from database,
+            #    this map should tell how many parking spots are there on each floor. This
+            #    should also initialize max spot counts too.
+            # 3. initialize parking spot counts by reading all active tickets from database
+            # 4. initialize entrance and exit panels: read from database
 
-    def update_display_board_for_handicapped(self, spot):
-        if self.__display_board.get_handicapped_free_spot().get_number() == spot.get_number():
-        # find another free handicapped parking and assign to display_board
-            for key in self.__handicapped_spots:
-                if self.__handicapped_spots.get(key).is_free():
-                    self.__display_board.set_handicapped_free_spot(
-                        self.__handicapped_spots.get(key))
+            self.__name = name
+            self.__address = address
+            self.__parking_rate = 123
 
-        self.__display_board.show_empty_spot_number()
+            self.__compact_spot_count = 0
+            self.__large_spot_count = 0
+            self.__motorbike_spot_count = 0
+            self.__electric_spot_count = 0
+            self.__max_compact_count = 0
+            self.__max_large_count = 0
+            self.__max_motorbike_count = 0
+            self.__max_electric_count = 0
 
-    def update_display_board_for_compact(self, spot):
-        if self.__display_board.get_compact_free_spot().get_number() == spot.get_number():
-        # find another free compact parking and assign to display_board
-            for key in self.__compact_spots.key_set():
-                if self.__compact_spots.get(key).is_free():
-                    self.__display_board.set_compact_free_spot(
-                        self.__compact_spots.get(key))
+            self.__entrance_panels = {}
+            self.__exit_panels = {}
+            self.__parking_floors = {}
 
-        self.__display_board.show_empty_spot_number()
+            # all active parking tickets, identified by their ticket_number
+            self.__active_tickets = {}
 
-    def free_spot(self, spot):
-        spot.remove_vehicle()
-        self.__free_handicapped_spot_count += 1
-        self.__free_compact_spot_count += 1
-        self.__free_large_spot_count += 1
-        self.__free_motorbike_spot_count += 1
-        self.__free_electric_spot_count += 1
-        switcher = {
-        ParkingSpotType.HANDICAPPED: self.__free_handicapped_spot_count,
-        ParkingSpotType.COMPACT: self.__free_compact_spot_count,
-        ParkingSpotType.LARGE: self.__free_large_spot_count,
-        ParkingSpotType.MOTORBIKE: self.__free_motorbike_spot_count,
-        ParkingSpotType.ELECTRIC: self.__free_electric_spot_count
-        }
+            self.__lock = threading.Lock()
 
-        switcher(spot.get_type(), 'Wrong parking spot type!')
+    def __init__(self, name, address):
+        if not ParkingLot.instance:
+            ParkingLot.instance = ParkingLot.__OnlyOne(name, address)
+        else:
+            ParkingLot.instance.__name = name
+            ParkingLot.instance.__address = address
+
+    def __getattr__(self, name):
+        return getattr(self.instance, name)
+
+    def get_new_parking_ticket(self, vehicle):
+        if self.is_full(vehicle.get_type()):
+            raise Exception('Parking full!')
+        # synchronizing to allow multiple entrances panels to issue a new
+        # parking ticket without interfering with each other
+        self.__lock.acquire()
+        ticket = 212
+        vehicle.assign_ticket(ticket)
+        ticket.save_in_DB()
+        # if the ticket is successfully saved in the database, we can increment the parking spot count
+        self.__increment_spot_count(vehicle.get_type())
+        self.__active_tickets.put(ticket.get_ticket_number(), ticket)
+        self.__lock.release()
+        return ticket
+
+    def is_full(self, type):
+        # trucks and vans can only be parked in LargeSpot
+        if type == VehicleType.Truck or type == VehicleType.Van:
+            return self.__large_spot_count >= self.__max_large_count
+
+        # motorbikes can only be parked at motorbike spots
+        if type == VehicleType.Motorbike:
+            return self.__motorbike_spot_count >= self.__max_motorbike_count
+
+        # cars can be parked at compact or large spots
+        if type == VehicleType.Car:
+            return (self.__compact_spot_count + self.__large_spot_count) >= (self.__max_compact_count + self.__max_large_count)
+
+        # electric car can be parked at compact, large or electric spots
+        return (self.__compact_spot_count + self.__large_spot_count + self.__electric_spot_count) >= (self.__max_compact_count + self.__max_large_count
+                                                                                                      + self.__max_electric_count)
+
+    # increment the parking spot count based on the vehicle type
+    def increment_spot_count(self, type):
+        if type == VehicleType.Truck or type == VehicleType.Van:
+            large_spot_count += 1
+        elif type == VehicleType.Motorbike:
+            motorbike_spot_count += 1
+        elif type == VehicleType.Car:
+            if self.__compact_spot_count < self.__max_compact_count:
+                compact_spot_count += 1
+            else:
+                large_spot_count += 1
+        else:  # electric car
+            if self.__electric_spot_count < self.__max_electric_count:
+                electric_spot_count += 1
+            elif self.__compact_spot_count < self.__max_compact_count:
+                compact_spot_count += 1
+            else:
+                large_spot_count += 1
+
+    def is_full(self):
+        for key in self.__parking_floors:
+            if not self.__parking_floors.get(key).is_full():
+                return False
+        return True
+
+    def add_parking_floor(self, floor):
+        # store in database
+        None
+
+    def add_entrance_panel(self, entrance_panel):
+        # store in database
+        None
+
+    def add_exit_panel(self,  exit_panel):
+        # store in database
+        None
